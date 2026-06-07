@@ -16,8 +16,12 @@
     header {
       background: #2d5016;
       color: #f5f0e8;
-      padding: 2.5rem 2rem 2rem;
-      text-align: center;
+      padding: 1.5rem 2rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      flex-wrap: wrap;
     }
     header h1 { font-size: 2.2rem; font-weight: normal; letter-spacing: .02em; }
     header p { margin-top: .5rem; font-size: 1rem; color: #b8d4a0; font-style: italic; }
@@ -195,8 +199,11 @@
 <body>
 
 <header>
-  <h1>Árboles y plantas de El Alcor</h1>
-  <p>Inventario fotográfico del jardín</p>
+  <div>
+    <h1>Árboles y plantas de El Alcor</h1>
+    <p>Inventario fotográfico del jardín</p>
+  </div>
+  <a href="mapa.html" style="color:#b8d4a0;text-decoration:none;font-size:.95rem;border:1px solid #b8d4a0;padding:.35rem .8rem;border-radius:4px;white-space:nowrap;">🗺 Ver mapa del jardín</a>
 </header>
 
 <nav id="nav-links"></nav>
