@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mapa del jardín — El Alcor</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: Georgia, serif; background: #f5f0e8; color: #2c2c2c; }
+
+    header {
+      background: #2d5016; color: #f5f0e8;
+      padding: 1.2rem 2rem; display: flex;
+      align-items: center; justify-content: space-between; flex-wrap: wrap; gap: .5rem;
+    }
+    header h1 { font-size: 1.4rem; font-weight: normal; }
+    header a { color: #b8d4a0; font-size: .9rem; text-decoration: none; }
+    header a:hover { text-decoration: underline; }
+
+    .instrucciones {
+      max-width: 900px; margin: 1rem auto .3rem; padding: 0 1rem;
+      font-size: .83rem; color: #666; font-style: italic;
+    }
+
+    .map-wrap {
+      position: relative;
+      max-width: 900px;
+      margin: .5rem auto 1.5rem;
+      padding: 0 1rem;
+    }
+    .map-wrap img {
+      width: 100%; display: block;
+      border-radius: 8px;
+      box-shadow: 0 3px 12px rgba(0,0,0,.2);
+    }
+
+    .marker {
+      position: absolute;
+      width: 22px; height: 22px;
+      background: #2d5016;
+      border: 2px solid rgba(255,255,255,.85);
+      border-radius: 50%;
+      color: #fff;
+      font-size: .6rem;
+      font-weight: bold;
+      font-family: monospace;
+      display: flex; align-items: center; justify-content: center;
+      transform: translate(-50%, -50%);
+      cursor: pointer;
+      box-shadow: 0 2px 5px rgba(0,0,0,.45);
+      z-index: 10;
+      transition: background .15s, transform .15s;
+    }
+    .marker:hover {
+      background: #6aaa3a;
+      transform: translate(-50%, -50%) scale(1.3);
+      z-index: 20;
+    }
+    .marker.active {
+      background: #f5c842;
+      border-color: #2d5016;
+      color: #2d5016;
+      transform: translate(-50%, -50%) scale(1.3);
+      z-index: 20;
+    }
+
+    /* Tooltip */
+    .tip {
+      display: none;
+      position: absolute;
+      bottom: 26px; left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0,0,0,.82);
+      color: #fff;
+      padding: 3px 8px;
+      border-radius: 4px;
+      font-size: .68rem;
+      white-space: nowrap;
+      pointer-events: none;
+    }
+    .marker:hover .tip { display: block; }
+
+    /* Side panel */
+    #panel {
+      display: none;
+      max-width: 900px; margin: 0 auto 1rem; padding: 0 1rem;
+    }
+    #panel .panel-inner {
+      background: #fff;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0,0,0,.1);
+      overflow: hidden;
+      display: flex; gap: 0;
+    }
+    .panel-photos {
+      display: flex; gap: 2px;
+      width: 260px; min-width: 260px;
+      height: 160px; background: #eee;
+      flex-shrink: 0;
+    }
+    .panel-photos img {
+      flex: 1; object-fit: cover; cursor: pointer;
+      transition: flex .2s;
+    }
+    .panel-photos img:hover { flex: 2; }
+    .panel-body { padding: .9rem 1.1rem; flex: 1; }
+    .panel-body h2 { font-size: 1rem; color: #2d5016; text-transform: uppercase; letter-spacing: .03em; }
+    .panel-sci { font-style: italic; font-size: .8rem; color: #888; margin: .1rem 0 .5rem; }
+    .panel-desc { font-size: .83rem; line-height: 1.5; color: #444; margin-bottom: .5rem; }
+    .panel-care {
+      background: #f2f7ec; border-left: 3px solid #6aaa3a;
+      padding: .4rem .7rem; border-radius: 0 4px 4px 0;
+      font-size: .78rem; color: #555; line-height: 1.45;
+    }
+    .panel-care strong { display: block; font-size: .7rem; text-transform: uppercase;
+      letter-spacing: .05em; color: #3d6b1f; margin-bottom: .2rem; }
+    .panel-link {
+      display: inline-block; margin-top: .6rem;
+      font-size: .78rem; color: #3d6b1f; text-decoration: none;
+      border-bottom: 1px dotted #6aaa3a;
+    }
+    .panel-link:hover { color: #2d5016; }
+    .panel-close {
+      position: absolute; top: .5rem; right: .7rem;
+      font-size: 1.1rem; cursor: pointer; color: #aaa; line-height: 1;
+    }
+    .panel-close:hover { color: #333; }
+
+    /* Legend */
+    .legend {
+      max-width: 900px; margin: 0 auto 3rem; padding: 0 1rem;
+    }
+    .legend h2 { font-size: .9rem; color: #2d5016; text-transform: uppercase;
+      letter-spacing: .04em; margin-bottom: .6rem; font-weight: normal; }
+    .legend-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+      gap: .3rem;
+    }
+    .legend-item {
+      display: flex; align-items: center; gap: .45rem;
+      font-size: .8rem; padding: .25rem .4rem;
+      border-radius: 4px; cursor: pointer; transition: background .15s;
+    }
+    .legend-item:hover { background: #e8f0dc; }
+    .legend-num {
+      width: 20px; height: 20px; border-radius: 50%;
+      background: #2d5016; color: #fff;
+      font-size: .6rem; font-weight: bold; font-family: monospace;
+      display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    }
+
+    /* Lightbox */
+    #lightbox { display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,.88); z-index: 1000;
+      align-items: center; justify-content: center; }
+    #lightbox.open { display: flex; }
+    #lightbox img { max-width: 90vw; max-height: 90vh; border-radius: 4px; }
+    #lb-close { position: absolute; top: 1rem; right: 1.2rem;
+      color: #fff; font-size: 2rem; cursor: pointer; }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>Mapa del jardín — El Alcor</h1>
+  <a href="index.html">← Ver todas las fichas</a>
+</header>
+
+<p class="instrucciones">Haz clic en cualquier marcador para ver la ficha de la planta.</p>
+
+<div class="map-wrap" id="mapwrap">
+  <img src="mapa.png" alt="Vista satélite del jardín de El Alcor">
+</div>
+
+<div id="panel">
+  <div class="panel-inner" style="position:relative;">
+    <span class="panel-close" onclick="cerrarPanel()">✕</span>
+    <div class="panel-photos" id="panel-photos"></div>
+    <div class="panel-body">
+      <h2 id="panel-name"></h2>
+      <div class="panel-sci" id="panel-sci"></div>
+      <div class="panel-desc" id="panel-desc"></div>
+      <div class="panel-care"><strong>Cuidados</strong><span id="panel-care"></span></div>
+      <a class="panel-link" id="panel-link" href="#">Ver ficha completa →</a>
+    </div>
+  </div>
+</div>
+
+<div class="legend">
+  <h2>Plantas en el mapa</h2>
+  <div class="legend-grid" id="legend-grid"></div>
+</div>
+
+<div id="lightbox">
+  <span id="lb-close" onclick="closeLb()">&times;</span>
+  <img id="lb-img" src="" alt="">
+</div>
+
+<script>
+const rawMarkers = [{"x":"73.15","y":"42.27","slug":"03-pino-pionero","name":"Pino piñonero"},{"x":"34.98","y":"75.73","slug":"06-cedro-atlas","name":"Cedro del Atlas / Cedro azul"},{"x":"22.18","y":"66.28","slug":"06-cedro-atlas","name":"Cedro del Atlas / Cedro azul"},{"x":"31.36","y":"60.04","slug":"05-abeto-rojo","name":"Abeto rojo"},{"x":"53.95","y":"71.81","slug":"17-laurel-cerezo","name":"Laurel cerezo"},{"x":"44.04","y":"62.35","slug":"13-tejo-columnar","name":"Tejo común columnar / Tejo irlandés"},{"x":"71.10","y":"64.47","slug":"04-tejo","name":"Tejo"},{"x":"20.25","y":"50.82","slug":"07-cerezo","name":"Cerezo"},{"x":"17.59","y":"40.86","slug":"08-granado","name":"Granado"},{"x":"80.39","y":"61.88","slug":"02-arbol-del-amor","name":"Árbol del amor / Árbol de Judas"},{"x":"87.04","y":"67.52","slug":"01-cedro-incienso","name":"Cedro del incienso"},{"x":"75.08","y":"72.04","slug":"18-nogal","name":"Nogal común"},{"x":"89.69","y":"72.14","slug":"19-aligustre-arboreo","name":"Aligustre arbóreo"},{"x":"94.89","y":"63.39","slug":"21-aligustre-matizado","name":"Aligustre matizado"},{"x":"86.31","y":"40.56","slug":"23-tamariz","name":"Tamariz"},{"x":"82.93","y":"49.44","slug":"42-hiperico","name":"Hierba de San Juan / Hipérico"},{"x":"61.43","y":"74.49","slug":"41-siempreviva","name":"Siempreviva de los tejados"},{"x":"55.76","y":"53.67","slug":"44-calas-amarillas","name":"Calas amarillas"},{"x":"19.28","y":"35.33","slug":"12-manzano","name":"Manzano"},{"x":"54.79","y":"18.13","slug":"29-cipres","name":"Ciprés"},{"x":"57.45","y":"18.23","slug":"29-cipres","name":"Ciprés"},{"x":"42.11","y":"24.97","slug":"18-nogal","name":"Nogal común"},{"x":"40.90","y":"15.81","slug":"30-nispero","name":"Níspero japonés"},{"x":"37.76","y":"17.22","slug":"30-nispero","name":"Níspero japonés"},{"x":"34.98","y":"50.22","slug":"09-acanto","name":"Acanto"},{"x":"41.14","y":"61.98","slug":"10-santolina","name":"Santolina"},{"x":"46.10","y":"63.80","slug":"11-rayito-de-sol","name":"Rayito de sol"},{"x":"47.79","y":"70.00","slug":"14-boj","name":"Boj común"},{"x":"51.77","y":"62.86","slug":"14-boj","name":"Boj común"},{"x":"48.39","y":"78.75","slug":"15-yuca","name":"Yuca gigantea"},{"x":"80.15","y":"11.89","slug":"15-yuca","name":"Yuca gigantea"},{"x":"38.97","y":"84.15","slug":"16-vid","name":"Vid / Parra"},{"x":"66.02","y":"13.30","slug":"18-nogal","name":"Nogal común"},{"x":"85.59","y":"69.86","slug":"20-hierba-pampas","name":"Hierba de las pampas"},{"x":"78.95","y":"34.05","slug":"22-cotoneaster-lechoso","name":"Cotoneaster lechoso"},{"x":"62.40","y":"8.17","slug":"22-cotoneaster-lechoso","name":"Cotoneaster lechoso"},{"x":"81.00","y":"18.83","slug":"22-cotoneaster-lechoso","name":"Cotoneaster lechoso"},{"x":"82.81","y":"36.64","slug":"24-viburno","name":"Viburno lúcido"},{"x":"86.80","y":"30.70","slug":"25-lilo","name":"Lilo"},{"x":"84.86","y":"23.46","slug":"26-higuera","name":"Higuera"},{"x":"76.29","y":"45.29","slug":"26-higuera","name":"Higuera"},{"x":"77.98","y":"21.35","slug":"27-pitosporo","name":"Pitosporo"},{"x":"77.98","y":"15.51","slug":"27-pitosporo","name":"Pitosporo"},{"x":"65.06","y":"21.35","slug":"28-hibiscus","name":"Rosa de Siria / Hibiscus"},{"x":"63.73","y":"51.09","slug":"28-hibiscus","name":"Rosa de Siria / Hibiscus"},{"x":"50.32","y":"47.10","slug":"31-parra-virgen","name":"Parra virgen"},{"x":"54.79","y":"5.05","slug":"32-cotoneaster-espiga","name":"Cotoneaster de espiga"},{"x":"44.04","y":"4.85","slug":"33-cipres-leyland","name":"Ciprés de Leyland"},{"x":"89.94","y":"19.74","slug":"33-cipres-leyland","name":"Ciprés de Leyland"},{"x":"64.69","y":"15.71","slug":"34-salvia-roja","name":"Salvia roja"},{"x":"66.63","y":"18.53","slug":"35-lavanda","name":"Lavanda"},{"x":"60.71","y":"19.74","slug":"35-lavanda","name":"Lavanda"},{"x":"67.83","y":"16.32","slug":"34-salvia-roja","name":"Salvia roja"},{"x":"65.90","y":"28.42","slug":"36-acebo","name":"Acebo"},{"x":"77.98","y":"12.13","slug":"37-arce-japones","name":"Arce japonés"},{"x":"65.18","y":"27.01","slug":"38-aliso-mar","name":"Aliso de mar"},{"x":"70.13","y":"36.57","slug":"39-hiedra-comun","name":"Hiedra común"},{"x":"72.67","y":"38.88","slug":"40-hiedra-variegada","name":"Hiedra variegada"},{"x":"63.00","y":"49.04","slug":"40-hiedra-variegada","name":"Hiedra variegada"},{"x":"58.05","y":"51.76","slug":"43-alstroemerias","name":"Alstroemerias"}];
+
+const plantData = {
+  "01-cedro-incienso":   {scientific:"Calocedrus decurrens", desc:"Árbol de gran porte y porte columnar. Desprende un suave aroma a incienso al frotarlo.", care:"Muy resistente. Pleno sol, suelos bien drenados. Casi sin mantenimiento.", photos:["fotos/01-cedro-incienso-general.jpg","fotos/01-cedro-incienso-hojas.jpg","fotos/01-cedro-incienso-tronco.jpg"]},
+  "02-arbol-del-amor":   {scientific:"Cercis siliquastrum", desc:"Flores rosas directamente en el tronco antes que las hojas, en primavera. Hojas redondeadas.", care:"Tolera sequía y suelos calcáreos. Poda mínima tras la floración.", photos:["fotos/02-arbol-del-amor-general.jpg","fotos/02-arbol-del-amor-hojas.jpg","fotos/02-arbol-del-amor-tronco.jpg"]},
+  "03-pino-pionero":     {scientific:"Pinus pinea", desc:"Copa en forma de paraguas en la madurez. Produce piñas con piñones comestibles.", care:"Muy resistente a la sequía. Pleno sol, suelos arenosos.", photos:["fotos/03-pino-pionero-general.jpg","fotos/03-pino-pionero-hojas.jpg","fotos/03-pino-pionero-tronco.jpg"]},
+  "04-tejo":             {scientific:"Taxus baccata", desc:"Árbol perennifolio muy longevo. Follaje oscuro y frutos rojos. Muy usado en topiaria.", care:"Tolera la sombra. Crece lentamente. Admite podas severas.", photos:["fotos/04-tejo-general.jpg","fotos/04-tejo-hojas.jpg","fotos/04-tejo-tronco.jpg"]},
+  "05-abeto-rojo":       {scientific:"Picea abies", desc:"Conífera de forma cónica perfecta. El típico árbol de Navidad.", care:"Prefiere climas frescos y húmedos. Pleno sol.", photos:["fotos/05-abeto-rojo-general.jpg","fotos/05-abeto-rojo-hojas.jpg","fotos/05-abeto-rojo-tronco.jpg"]},
+  "06-cedro-atlas":      {scientific:"Cedrus atlantica 'Glauca'", desc:"Agujas de color azul-plateado muy decorativo. Una de las coníferas ornamentales más apreciadas.", care:"Resistente a la sequía una vez establecido. Pleno sol.", photos:["fotos/06-cedro-atlas-general.jpg","fotos/06-cedro-atlas-hojas.jpg","fotos/06-cedro-atlas-tronco.jpg"]},
+  "07-cerezo":           {scientific:"Prunus avium", desc:"Espectacular floración blanca en primavera. Frutos en verano, follaje rojizo en otoño.", care:"Pleno sol, suelos frescos. Poda de formación en invierno.", photos:["fotos/07-cerezo-general.jpg","fotos/07-cerezo-hojas.jpg","fotos/07-cerezo-tronco.jpg"]},
+  "08-granado":          {scientific:"Punica granatum", desc:"Flores rojo-anaranjadas y granadas. Cultivado desde la antigüedad.", care:"Muy resistente al calor y la sequía. Poda en invierno.", photos:["fotos/08-granado-general.jpg","fotos/08-granado-hojas.jpg","fotos/08-granado-tronco.jpg"]},
+  "09-acanto":           {scientific:"Acanthus mollis", desc:"Grandes hojas brillantes y espigas florales blancas y malvas. Inspiración del capitel corintio.", care:"Tolera la sequía. Puede ser invasora por rizomas.", photos:["fotos/09-acanto-general.jpg","fotos/09-acanto-hojas.jpg","fotos/09-acanto-tronco.jpg"]},
+  "10-santolina":        {scientific:"Santolina chamaecyparissus", desc:"Mata aromática con follaje plateado y flores amarillas en verano.", care:"Pleno sol. Muy resistente a la sequía. Poda tras la floración.", photos:["fotos/10-santolina-general.jpg","fotos/10-santolina-hojas.jpg","fotos/10-santolina-tronco.jpg"]},
+  "11-rayito-de-sol":    {scientific:"Ligustrum ovalifolium 'Aureum'", desc:"Hojas bicolores en verde y amarillo dorado muy llamativas.", care:"Sol potencia el color dorado. Poda en primavera y verano.", photos:["fotos/11-rayito-de-sol-general.jpg","fotos/11-rayito-de-sol-hojas.jpg","fotos/11-rayito-de-sol-tronco.jpg"]},
+  "12-manzano":          {scientific:"Malus domestica", desc:"Floración blanca o rosada en primavera. Frutos en otoño.", care:"Pleno sol. Poda de formación en invierno.", photos:["fotos/12-manzano-general.jpg","fotos/12-manzano-hojas.jpg","fotos/12-manzano-tronco.jpg"]},
+  "13-tejo-columnar":    {scientific:"Taxus baccata 'Fastigiata'", desc:"Variedad columnar del tejo, con ramas hacia arriba. Muy útil para delimitar espacios.", care:"Tolera sombra y todo tipo de suelos. Crece lentamente.", photos:["fotos/13-tejo-columnar-general.jpg","fotos/13-tejo-columnar-hojas.jpg","fotos/13-tejo-columnar-tronco.jpg"]},
+  "14-boj":              {scientific:"Buxus sempervirens", desc:"El clásico de jardines geométricos. Admite cualquier forma con la poda.", care:"Vigilar la polilla del boj. Poda 1-2 veces al año.", photos:["fotos/14-boj-general.jpg","fotos/14-boj-hojas.jpg","fotos/14-boj-tronco.jpg"]},
+  "15-yuca":             {scientific:"Yucca elephantipes", desc:"Aspecto tropical con largas hojas en roseta sobre grueso tronco.", care:"Pleno sol. Muy resistente a la sequía. El exceso de agua es su mayor enemigo.", photos:["fotos/15-yuca-general.jpg","fotos/15-yuca-hojas.jpg","fotos/15-yuca-tronco.jpg"]},
+  "16-vid":              {scientific:"Vitis vinifera", desc:"Combina valor frutal con ornamental. En otoño los colores son espectaculares.", care:"Pleno sol. Poda severa en invierno, fundamental para la producción.", photos:["fotos/16-vid-general.jpg","fotos/16-vid-hojas.jpg","fotos/16-vid-tronco.jpg"]},
+  "17-laurel-cerezo":    {scientific:"Prunus laurocerasus", desc:"Hojas grandes y brillantes. Muy usado en setos densos.", care:"Pleno sol a sombra profunda. Admite podas severas.", photos:["fotos/17-laurel-cerezo-general.jpg","fotos/17-laurel-cerezo-hojas.jpg","fotos/17-laurel-cerezo-tronco.jpg"]},
+  "18-nogal":            {scientific:"Juglans regia", desc:"Gran porte, copa amplia y follaje aromático. Produce nueces.", care:"Pleno sol. Suelos profundos. Segrega juglona que inhibe otras plantas cercanas.", photos:["fotos/18-nogal-general.jpg","fotos/18-nogal-hojas.jpg","fotos/18-nogal-tronco.jpg"]},
+  "19-aligustre-arboreo":{scientific:"Ligustrum lucidum", desc:"Grandes panículas de flores blancas perfumadas en verano.", care:"Adaptable a sol y semisombra. Tolerante a sequía y contaminación.", photos:["fotos/19-aligustre-arboreo-general.jpg","fotos/19-aligustre-arboreo-hojas.jpg","fotos/19-aligustre-arboreo-tronco.jpg"]},
+  "20-hierba-pampas":    {scientific:"Cortaderia selloana", desc:"Vistosas plumas blancas o rosadas en otoño que pueden superar los 3 m.", care:"Poda severa a ras del suelo a finales de invierno, con guantes.", photos:["fotos/20-hierba-pampas-general.jpg","fotos/20-hierba-pampas-hojas.jpg","fotos/20-hierba-pampas-tronco.jpg"]},
+  "21-aligustre-matizado":{scientific:"Ligustrum ovalifolium 'Variegatum'", desc:"Hojas bordeadas en crema o blanco. Muy usado en setos ornamentales.", care:"Sol o semisombra. Poda en primavera y verano.", photos:["fotos/21-aligustre-matizado-general.jpg","fotos/21-aligustre-matizado-hojas.jpg","fotos/21-aligustre-matizado-tronco.jpg"]},
+  "22-cotoneaster-lechoso":{scientific:"Cotoneaster lacteus", desc:"Porte arqueado con flores blancas en verano y abundantes bayas rojas en otoño-invierno.", care:"Muy resistente a la sequía. Poca poda.", photos:["fotos/22-cotoneaster-lechoso-general.jpg","fotos/22-cotoneaster-lechoso-hojas.jpg"]},
+  "23-tamariz":          {scientific:"Tamarix gallica", desc:"Aspecto plumoso con flores rosadas. Tolera salinidad y suelos pobres.", care:"Pleno sol. Extraordinariamente resistente. Poda tras la floración.", photos:["fotos/23-tamariz-general.jpg","fotos/23-tamariz-hojas.jpg","fotos/23-tamariz-tronco.jpg"]},
+  "24-viburno":          {scientific:"Viburnum lucidum", desc:"Grandes umbelas de flores blancas perfumadas en invierno-primavera temprana.", care:"Tolera la sombra. Riego regular. Poda ligera tras la floración.", photos:["fotos/24-viburno-general.jpg","fotos/24-viburno-hojas.jpg","fotos/24-viburno-tronco.jpg"]},
+  "25-lilo":             {scientific:"Syringa vulgaris", desc:"Racimos de flores de perfume intenso y característico en primavera.", care:"Pleno sol. Poda tras la floración eliminando los racimos marchitos.", photos:["fotos/25-lilo-general.jpg","fotos/25-lilo-hojas.jpg","fotos/25-lilo-tronco.jpg"]},
+  "26-higuera":          {scientific:"Ficus carica", desc:"Hojas grandes muy ornamentales. Produce higos en verano y brevas en junio.", care:"Pleno sol. Muy resistente a la sequía. Poda en invierno.", photos:["fotos/26-higuera-general.jpg","fotos/26-higuera-hojas.jpg"]},
+  "27-pitosporo":        {scientific:"Pittosporum tobira", desc:"Hojas coriáceas brillantes. Flores blancas con aroma a naranja en primavera.", care:"Sol o semisombra. Muy tolerante a la sequía y suelos pobres.", photos:["fotos/27-pitosporo-general.jpg","fotos/27-pitosporo-hojas.jpg","fotos/27-pitosporo-tronco.jpg"]},
+  "28-hibiscus":         {scientific:"Hibiscus syriacus", desc:"Grandes flores en tonos blancos, rosas o malvas en verano-otoño.", care:"Pleno sol. Poda en primavera antes del inicio del crecimiento.", photos:["fotos/28-hibiscus-general.jpg","fotos/28-hibiscus-hojas.jpg","fotos/28-hibiscus-tronco.jpg"]},
+  "29-cipres":           {scientific:"Cupressus sempervirens", desc:"Conífera de porte columnar estricto, símbolo del paisaje mediterráneo.", care:"Pleno sol. Muy resistente a la sequía. Casi sin mantenimiento.", photos:["fotos/29-cipres-general.jpg","fotos/29-cipres-hojas.jpg","fotos/29-cipres-tronco.jpg"]},
+  "30-nispero":          {scientific:"Eriobotrya japonica", desc:"Florece en otoño-invierno y produce nísperos en primavera, de los primeros del año.", care:"Pleno sol o semisombra. Tolera la sequía moderada.", photos:["fotos/30-nispero-general.jpg","fotos/30-nispero-hojas.jpg","fotos/30-nispero-tronco.jpg"]},
+  "31-parra-virgen":     {scientific:"Parthenocissus quinquefolia", desc:"Trepadora que se adhiere a muros. Espectáculo de rojos y naranjas en otoño.", care:"Sol o sombra. Crece rápidamente. Sin apenas plagas.", photos:["fotos/31-parra-virgen-general.jpg","fotos/31-parra-virgen-hojas.jpg"]},
+  "32-cotoneaster-espiga":{scientific:"Cotoneaster horizontalis", desc:"Porte en espina de pez. Bayas rojas muy persistentes y ornamentales.", care:"Sol o semisombra. Muy resistente. Sin mantenimiento.", photos:["fotos/32-cotoneaster-espiga-general.jpg","fotos/32-cotoneaster-espiga-hojas.jpg","fotos/32-cotoneaster-espiga-tronco.jpg"]},
+  "33-cipres-leyland":   {scientific:"× Cuprocyparis leylandii", desc:"Crecimiento rapidísimo (hasta 1 m/año). Muy usado para setos de privacidad.", care:"Pleno sol. Podas periódicas para controlar el crecimiento.", photos:["fotos/33-cipres-leyland-general.jpg","fotos/33-cipres-leyland-hojas.jpg"]},
+  "34-salvia-roja":      {scientific:"Salvia splendens", desc:"Flores tubulares de rojo intenso muy llamativas. Muy usada en parterres.", care:"Pleno sol. Eliminar flores marchitas para prolongar la floración.", photos:["fotos/34-salvia-roja-general.jpg","fotos/34-salvia-roja-hojas.jpg","fotos/34-salvia-roja-tronco.jpg"]},
+  "35-lavanda":          {scientific:"Lavandula angustifolia", desc:"Mata aromática con espigas azul-violáceas. Usos en perfumería, cosmética y gastronomía.", care:"Pleno sol. Muy resistente a la sequía. Poda tras la floración.", photos:["fotos/35-lavanda-general.jpg","fotos/35-lavanda-hojas.jpg","fotos/35-lavanda-tronco.jpg"]},
+  "36-acebo":            {scientific:"Ilex aquifolium", desc:"Hojas espinosas brillantes y bayas rojas en invierno. Símbolo de la Navidad.", care:"Semisombra o sol. Suelos ácidos y bien drenados.", photos:["fotos/36-acebo-general.jpg","fotos/36-acebo-hojas.jpg"]},
+  "37-arce-japones":     {scientific:"Acer palmatum", desc:"Hojas palmeadas con colores espectaculares: verde o rojo en verano, escarlata en otoño.", care:"Semisombra. Suelos ácidos y bien drenados. Poda mínima.", photos:["fotos/37-arce-japones-general.jpg","fotos/37-arce-japones-hojas.jpg","fotos/37-arce-japones-tronco.jpg"]},
+  "38-aliso-mar":        {scientific:"Phillyrea angustifolia", desc:"Arbusto costero resistente al viento y la salinidad, con hojas estrechas grises.", care:"Pleno sol. Extraordinariamente resistente. Ideal para zonas difíciles.", photos:["fotos/38-aliso-mar-general.jpg"]},
+  "39-hiedra-comun":     {scientific:"Hedera helix", desc:"Trepadora o tapizante perennifolia que cubre muros y tapiza suelos en sombra.", care:"Sombra o semisombra. Prácticamente cualquier suelo. Muy resistente.", photos:["fotos/39-hiedra-comun-general.jpg"]},
+  "40-hiedra-variegada": {scientific:"Hedera helix 'Variegata'", desc:"Hojas bordeadas en blanco o crema. Ilumina rincones sombríos.", care:"Semisombra o sombra. Evitar sol directo intenso.", photos:["fotos/40-hiedra-variegada-general.jpg"]},
+  "41-siempreviva":      {scientific:"Sempervivum tectorum", desc:"Suculenta que forma rosetas compactas. Extremadamente resistente.", care:"Pleno sol. Suelos muy pobres y secos. Riego escasísimo.", photos:["fotos/41-siempreviva-general.jpg"]},
+  "42-hiperico":         {scientific:"Hypericum calycinum", desc:"Flores amarillas con abundantes estambres dorados en verano. Tapizante bajo árboles.", care:"Sol o semisombra. Bastante resistente a la sequía.", photos:["fotos/42-hiperico-general.jpg","fotos/42-hiperico-hojas.jpg","fotos/42-hiperico-tronco.jpg"]},
+  "43-alstroemerias":    {scientific:"Alstroemeria spp.", desc:"Flores muy coloridas, frecuentemente bicolores y moteadas. Excelente como flor cortada.", care:"Sol o semisombra. Riego regular. Se multiplica por división en otoño.", photos:["fotos/43-alstroemerias-general.jpg","fotos/43-alstroemerias-hojas.jpg","fotos/43-alstroemerias-tronco.jpg"]},
+  "44-calas-amarillas":  {scientific:"Zantedeschia elliottiana", desc:"Grandes flores en espata amarillo intenso. Ideal para zonas húmedas.", care:"Sol o semisombra. Suelos húmedos. Riego abundante en temporada de crecimiento.", photos:["fotos/44-calas-amarillas-general.jpg","fotos/44-calas-amarillas-hojas.jpg"]},
+};
+
+// Build plant index for legend (unique slugs in order of first appearance)
+const seen = new Set();
+const uniquePlants = [];
+rawMarkers.forEach(m => { if (!seen.has(m.slug)) { seen.add(m.slug); uniquePlants.push(m); } });
+uniquePlants.sort((a,b) => a.slug.localeCompare(b.slug));
+
+// Place markers
+const wrap = document.getElementById('mapwrap');
+let activeMarker = null;
+
+rawMarkers.forEach((m, i) => {
+  const div = document.createElement('div');
+  div.className = 'marker';
+  div.style.left = m.x + '%';
+  div.style.top = m.y + '%';
+  const num = m.slug.split('-')[0].replace(/^0/,'');
+  div.innerHTML = `${num}<span class="tip">${m.name}</span>`;
+  div.addEventListener('click', e => {
+    e.stopPropagation();
+    if (activeMarker) activeMarker.classList.remove('active');
+    div.classList.add('active');
+    activeMarker = div;
+    mostrarPanel(m.slug);
+  });
+  wrap.appendChild(div);
+});
+
+// Legend
+const lgrid = document.getElementById('legend-grid');
+uniquePlants.forEach(m => {
+  const div = document.createElement('div');
+  div.className = 'legend-item';
+  const num = m.slug.split('-')[0].replace(/^0/,'');
+  div.innerHTML = `<span class="legend-num">${num}</span><span>${m.name}</span>`;
+  div.addEventListener('click', () => mostrarPanel(m.slug));
+  lgrid.appendChild(div);
+});
+
+function mostrarPanel(slug) {
+  const p = plantData[slug];
+  if (!p) return;
+  const pi = parseInt(slug.split('-')[0]) - 1;
+  document.getElementById('panel-name').textContent = rawMarkers.find(m=>m.slug===slug).name;
+  document.getElementById('panel-sci').textContent = p.scientific;
+  document.getElementById('panel-desc').textContent = p.desc;
+  document.getElementById('panel-care').textContent = p.care;
+  document.getElementById('panel-link').href = `index.html#plant-${pi}`;
+  const photos = document.getElementById('panel-photos');
+  photos.innerHTML = p.photos.map(src =>
+    `<img src="${src}" alt="" onclick="openLb('${src}')">`
+  ).join('');
+  document.getElementById('panel').style.display = 'block';
+  document.getElementById('panel').scrollIntoView({behavior:'smooth', block:'nearest'});
+}
+
+function cerrarPanel() {
+  document.getElementById('panel').style.display = 'none';
+  if (activeMarker) { activeMarker.classList.remove('active'); activeMarker = null; }
+}
+
+document.addEventListener('click', e => {
+  if (!e.target.closest('#panel') && !e.target.closest('.marker')) cerrarPanel();
+});
+
+function openLb(src) {
+  document.getElementById('lb-img').src = src;
+  document.getElementById('lightbox').classList.add('open');
+}
+function closeLb() {
+  document.getElementById('lightbox').classList.remove('open');
+}
+document.getElementById('lightbox').addEventListener('click', e => {
+  if (e.target === e.currentTarget) closeLb();
+});
+document.addEventListener('keydown', e => { if (e.key==='Escape') closeLb(); });
+</script>
+</body>
+</html>
