@@ -134,6 +134,12 @@
       letter-spacing: .04em;
       margin-bottom: .1rem;
     }
+    .scientific a {
+      color: #888;
+      text-decoration: none;
+      border-bottom: 1px dotted #bbb;
+    }
+    .scientific a:hover { color: #3d6b1f; border-bottom-color: #3d6b1f; }
     .scientific {
       font-size: .82rem;
       color: #888;
@@ -554,7 +560,7 @@ plants.forEach((p, i) => {
     <div class="photos">${photosHtml}</div>
     <div class="card-body">
       <h2>${p.name}</h2>
-      <div class="scientific">${p.scientific}</div>
+      <div class="scientific"><a href="https://es.wikipedia.org/wiki/${encodeURIComponent(p.scientific.split(' spp')[0].split("'")[0].trim())}" target="_blank" rel="noopener" title="Ver en Wikipedia">${p.scientific}</a></div>
       <p class="description">${p.desc}</p>
       <div class="care">
         <div class="care-title">Cuidados</div>
