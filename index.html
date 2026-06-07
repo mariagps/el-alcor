@@ -523,7 +523,7 @@ plants.forEach((p, i) => {
   let photosHtml = '';
   if (p.photos.length > 0) {
     p.photos.forEach((id, pi) => {
-      photosHtml += `<img src="${id}" alt="${photoLabels[pi] || 'Detalle'}" title="${photoLabels[pi] || 'Detalle'}" onclick="openLightbox(`${id}`)">
+      photosHtml += `<img src="${id}" alt="${photoLabels[pi] || 'Detalle'}" title="${photoLabels[pi] || 'Detalle'}" onclick="openLightbox('${id}')">`;
     });
   } else {
     photosHtml = '<div class="no-photo">Fotos próximamente</div>';
