@@ -1,0 +1,583 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Árboles y plantas de El Alcor</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Georgia', serif;
+      background: #f5f0e8;
+      color: #2c2c2c;
+    }
+
+    header {
+      background: #2d5016;
+      color: #f5f0e8;
+      padding: 2.5rem 2rem 2rem;
+      text-align: center;
+    }
+    header h1 { font-size: 2.2rem; font-weight: normal; letter-spacing: .02em; }
+    header p { margin-top: .5rem; font-size: 1rem; color: #b8d4a0; font-style: italic; }
+
+    nav {
+      background: #3d6b1f;
+      padding: .6rem 1.5rem;
+      display: flex;
+      flex-wrap: wrap;
+      gap: .4rem;
+      justify-content: center;
+    }
+    nav a {
+      color: #d4ebb8;
+      text-decoration: none;
+      font-size: .78rem;
+      padding: .25rem .6rem;
+      border-radius: 3px;
+      transition: background .2s;
+    }
+    nav a:hover { background: rgba(255,255,255,.15); }
+
+    .search-bar {
+      max-width: 600px;
+      margin: 1.5rem auto .5rem;
+      padding: 0 1rem;
+    }
+    .search-bar input {
+      width: 100%;
+      padding: .65rem 1rem;
+      border: 1.5px solid #b0c8a0;
+      border-radius: 6px;
+      font-size: 1rem;
+      background: #fff;
+      outline: none;
+    }
+    .search-bar input:focus { border-color: #3d6b1f; }
+
+    .stats {
+      text-align: center;
+      font-size: .85rem;
+      color: #666;
+      margin-bottom: 1.5rem;
+    }
+
+    .grid {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 0 1rem 3rem;
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+      gap: 1.5rem;
+    }
+
+    .card {
+      background: #fff;
+      border-radius: 10px;
+      overflow: hidden;
+      box-shadow: 0 2px 8px rgba(0,0,0,.08);
+      transition: transform .2s, box-shadow .2s;
+    }
+    .card:hover { transform: translateY(-3px); box-shadow: 0 6px 20px rgba(0,0,0,.13); }
+    .card.hidden { display: none; }
+
+    .photos {
+      display: flex;
+      gap: 3px;
+      height: 200px;
+      background: #e8e8e8;
+    }
+    .photos img {
+      flex: 1;
+      object-fit: cover;
+      cursor: pointer;
+      transition: flex .25s;
+    }
+    .photos img:hover { flex: 2.5; }
+    .photos .no-photo {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #aaa;
+      font-size: .8rem;
+      font-style: italic;
+      background: #f0f0f0;
+    }
+
+    .card-body { padding: 1.1rem 1.2rem 1.3rem; }
+
+    .card-body h2 {
+      font-size: 1.05rem;
+      color: #2d5016;
+      text-transform: uppercase;
+      letter-spacing: .04em;
+      margin-bottom: .1rem;
+    }
+    .scientific {
+      font-size: .82rem;
+      color: #888;
+      font-style: italic;
+      margin-bottom: .7rem;
+    }
+    .description {
+      font-size: .9rem;
+      line-height: 1.55;
+      color: #444;
+      margin-bottom: .8rem;
+    }
+    .care {
+      background: #f2f7ec;
+      border-left: 3px solid #6aaa3a;
+      padding: .6rem .8rem;
+      border-radius: 0 5px 5px 0;
+    }
+    .care-title {
+      font-size: .75rem;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      color: #3d6b1f;
+      font-weight: bold;
+      margin-bottom: .35rem;
+    }
+    .care p { font-size: .83rem; line-height: 1.5; color: #555; }
+
+    /* Lightbox */
+    #lightbox {
+      display: none;
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,.88);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+    }
+    #lightbox.open { display: flex; }
+    #lightbox img { max-width: 90vw; max-height: 90vh; border-radius: 4px; }
+    #lightbox-close {
+      position: absolute; top: 1rem; right: 1.2rem;
+      color: #fff; font-size: 2rem; cursor: pointer; line-height: 1;
+    }
+
+    footer {
+      text-align: center;
+      padding: 1.5rem;
+      font-size: .8rem;
+      color: #888;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>Árboles y plantas de El Alcor</h1>
+  <p>Inventario fotográfico del jardín</p>
+</header>
+
+<nav id="nav-links"></nav>
+
+<div class="search-bar">
+  <input type="text" id="search" placeholder="Buscar por nombre..." oninput="filterCards()">
+</div>
+<p class="stats" id="stats"></p>
+
+<div class="grid" id="grid"></div>
+
+<div id="lightbox">
+  <span id="lightbox-close" onclick="closeLightbox()">&times;</span>
+  <img id="lightbox-img" src="" alt="">
+</div>
+
+<footer>El Alcor &mdash; actualizado junio 2026</footer>
+
+<script>
+const DRIVE = id => `https://drive.google.com/thumbnail?id=${id}&sz=w800`;
+
+const plants = [
+  {
+    name: "Cedro del incienso",
+    scientific: "Calocedrus decurrens",
+    photos: ["1s2p8mi5tRwOq1bIMUr64rtJlvzQ7u_6T","1KwS1cObIUXqVzd5_QBqEi_m6FB_mjLZi","1gOo4W7UYWiZB_fsOMiJcASPKKs9ExuP2"],
+    desc: "Árbol de gran porte, perennifolio, con porte columnar muy característico. Su follaje es de un verde intenso y desprende un suave aroma a incienso al frotarlo. Puede alcanzar los 40 m en su hábitat natural.",
+    care: "Muy resistente y de bajo mantenimiento. Prefiere suelos bien drenados y exposición a pleno sol. Tolera sequías moderadas una vez establecido. No requiere poda salvo para eliminar ramas secas."
+  },
+  {
+    name: "Árbol del amor / Árbol de Judas",
+    scientific: "Cercis siliquastrum",
+    photos: ["1U8rTW8C2sz27XyqFm0UZEost-ERjAqQ9","1Z8MMQ0w8v388ODqN20sIfNtl3U41x5rM","1MfeZpiQfCS9ZkUSK-NGIPoxwJ1x_25Bf"],
+    desc: "Árbol caducifolio de tamaño mediano, famoso por sus espectaculares flores rosas o púrpuras que brotan directamente del tronco y las ramas antes que las hojas, en primavera. Las hojas son redondeadas y de un verde grisáceo.",
+    care: "Tolera bien la sequía y suelos calcáreos. Exposición a pleno sol o semisombra. Floración espectacular en marzo-abril. Poda mínima tras la floración para mantener la forma."
+  },
+  {
+    name: "Pino piñonero",
+    scientific: "Pinus pinea",
+    photos: ["1LPLjDxArBkblHEDVaBCicW1HUy7HHTa9","1TND9LgXsCilENg8V1YtaexAKawyTKZk9","1SRAzv_nMMp-xWmyljGB_tpXy2QwpQTpB"],
+    desc: "Uno de los árboles más emblemáticos del mediterráneo. Se reconoce fácilmente por su copa en forma de paraguas en la madurez. Produce piñas que contienen los apreciados piñones comestibles.",
+    care: "Muy resistente a la sequía y al calor. Prefiere suelos arenosos y sueltos, con pleno sol. Una vez establecido prácticamente no necesita riego. Evitar suelos encharcados."
+  },
+  {
+    name: "Tejo",
+    scientific: "Taxus baccata",
+    photos: ["1GHAtEkSOFApL-hixtoghT3H3zfy7nbaW","1j8hMw16VjeOXylRYRhjNh4Cko5MDsW65","1o6ayvmHv_HFm9tUXeb8XdEyZ-7uKhOXR"],
+    desc: "Árbol perennifolio de larga vida, uno de los más longevos de Europa. Follaje oscuro y denso, con frutos rojos llamados arilos. Todas sus partes, excepto el arilo rojo, son tóxicas. Muy usado en topiaria.",
+    care: "Tolera bien la sombra y suelos variados. Crece lentamente. Admite podas severas y se usa mucho para setos y formas geométricas. Riego moderado; resiste bien las heladas."
+  },
+  {
+    name: "Abeto rojo",
+    scientific: "Picea abies",
+    photos: ["16WraMSclt-gtLTHieupn1jnevkmXFQVZ","1MK-EdM6-abaorPStl7_SoG897BCas4XV","1w3rMx8P0DwYTq-kQQY3YRt2ffjE5opnV"],
+    desc: "Conífera de gran porte con forma cónica perfecta. Es el típico 'árbol de Navidad'. Agujas de color verde oscuro, brillantes, y piñas colgantes de hasta 15 cm que contienen semillas aladas.",
+    care: "Prefiere climas frescos y húmedos, suelos ácidos y bien drenados. Pleno sol. En zonas cálidas puede sufrir en verano. Riego regular en verano si el clima es seco."
+  },
+  {
+    name: "Cedro del Atlas / Cedro azul / Cedro plateado",
+    scientific: "Cedrus atlantica 'Glauca'",
+    photos: ["114dT_N5zYyTWYcaEO4XNg7DsH-KFlGBU","1bMtAD3I4cCDzPWYBAaxJugHwtS2j0ZG6","1HYlponl7W8YDLskUlVe4TKhi522alfuy"],
+    desc: "Árbol imponente con agujas de un característico color azul-plateado muy decorativo. La variedad glauca es una de las coníferas ornamentales más apreciadas en jardines. Puede alcanzar los 30-40 m.",
+    care: "Resistente a la sequía una vez establecido. Pleno sol, suelos bien drenados. Crece con relativa rapidez. Poda mínima; sólo eliminar ramas secas o mal orientadas."
+  },
+  {
+    name: "Cerezo",
+    scientific: "Prunus avium",
+    photos: ["1ML5HWRJ5b95701smXwarDVhOZij9kLct","19SHD6EDKH811WqSQjrOn83BtEKVksmhG","1QDEcyQH4-6oFBt5C4Ukl5Nwy0YTEgv9G"],
+    desc: "Árbol frutal caducifolio con una espectacular floración blanca en primavera. Sus frutos, las cerezas, maduran en verano. En otoño el follaje adquiere bellos tonos rojizos y anaranjados.",
+    care: "Pleno sol, suelos frescos y bien drenados. Riego regular sobre todo durante la fructificación. Poda de formación en invierno. Sensible a hongos en ambientes muy húmedos."
+  },
+  {
+    name: "Granado",
+    scientific: "Punica granatum",
+    photos: ["1qsz1PgF_EVEBwHb0QDMt-w2XQE-mVKyG","14A2YpXLbA1XJTwUkmhaOlANAXBYx4zth","124bBxekctONPFKf2mDfZ-r7B_TvqNiKw"],
+    desc: "Arbusto o árbol pequeño caducifolio con flores de un intenso rojo anaranjado y frutos —las granadas— de gran valor culinario y ornamental. Originario de Oriente Próximo, se cultiva desde la antigüedad.",
+    care: "Muy resistente al calor y la sequía. Prefiere pleno sol y suelos bien drenados. Tolera suelos calcáreos. Poda en invierno para airear la copa. Riego escaso en verano."
+  },
+  {
+    name: "Acanto",
+    scientific: "Acanthus mollis",
+    photos: ["1_RF7PR83a0g2HZ4XCdGdSu1CUboM2roe","18oOuFJiCdcVgRo3yc0nRRB3Rqh4WTNPC","1GqJuD_avK5ajg2BaamLr2y6ICEDSe8P7"],
+    desc: "Planta perenne herbácea de grandes hojas brillantes y lobuladas, muy ornamental. Sus espigas florales blancas y malvas, de hasta 1,5 m, son muy vistosas. Fuente de inspiración del capitel corintio.",
+    care: "Prefiere sombra parcial o pleno sol en zonas templadas. Tolera la sequía. Suelos bien drenados. Se extiende por rizomas; puede ser invasora. Riego moderado."
+  },
+  {
+    name: "Santolina",
+    scientific: "Santolina chamaecyparissus",
+    photos: ["1OrLcWrtdq1ZkdetMSI1Tj1srBK-E41Nc","146hCv6ImEkvnbOLDUWcFnusOiQdIf0NA","1iIGqJRyivksq6jTYqHL448keGHFZgjpc"],
+    desc: "Mata aromática y perenne con follaje plateado muy decorativo y pequeñas flores amarillas en verano. Muy usada en borduras, jardines de piedra y jardines mediterráneos. Desprende aroma intenso al tocarla.",
+    care: "Pleno sol. Resistente a la sequía y al calor. Suelos bien drenados, incluso pobres. Poda tras la floración para mantener forma compacta. No tolera el encharcamiento."
+  },
+  {
+    name: "Rayito de sol",
+    scientific: "Ligustrum ovalifolium 'Aureum'",
+    photos: ["1trcXuLKGmGr7jhfkPfGPsM-T_iJSeubM","1aVn7TKYWtf23Fnq5EJyrF0UfybzGcJYU","15ig2zfcX_1_SIClX4fRL0aPYOv6Neghy"],
+    desc: "Variedad de aligustre con hojas bicolores en verde y amarillo dorado muy llamativas. Semipérennifolio, puede usarse como seto o arbusto aislado. Sus hojas iluminan rincones oscuros del jardín.",
+    care: "Se adapta a pleno sol y semisombra. Sol potencia el color dorado. Suelos moderadamente húmedos. Poda en primavera y verano para mantener forma. Tolera bien las podas."
+  },
+  {
+    name: "Manzano",
+    scientific: "Malus domestica",
+    photos: ["1grolPUAhjUhbqPbN6iZzn--Hv97gPHmB","1Q-KZ1Yfpt5Ujj9aymXzxEJXtJsGmhsgO","1h3E7fGZdfR40KFX6cwOB8l67zi8N2_pg"],
+    desc: "Árbol frutal caducifolio con floración blanca o rosada en primavera y frutos en otoño. Existen cientos de variedades. Además del valor frutal, es muy ornamental tanto en flor como en fruto.",
+    care: "Pleno sol, suelos frescos y bien drenados. Riego regular. Poda de formación y fructificación en invierno. Tratar preventivamente contra hongos y plagas comunes como el moteado."
+  },
+  {
+    name: "Tejo común columnar / Tejo irlandés",
+    scientific: "Taxus baccata 'Fastigiata'",
+    photos: ["1txnSLvAezpgzYZmUBX0LCUoNjZFhE5yN","1FebS-9OV_7TlI8H6D9IqDCKYCtF2JXOb","1xVPlocVRZtKVC-r3Sblq2R0zRSdReiGD"],
+    desc: "Variedad columnar del tejo común, con todas las ramas dirigidas hacia arriba, creando un porte estrecho y erguido muy útil para delimitar espacios o crear alineaciones. Follaje oscuro y denso.",
+    care: "Igual que el tejo común: tolera sombra y todo tipo de suelos. Crece lentamente. Muy resistente al frío. Poda suave para mantener la forma columnar. Todas sus partes son tóxicas salvo el arilo."
+  },
+  {
+    name: "Boj común",
+    scientific: "Buxus sempervirens",
+    photos: ["1Hzg9IeDpviPCGpSzs399EUGYZI2nxSlH","1mU19XEFOGr5qMm6cqYAaoLbmfa1TgYkS","1dt89zsQT8M08Gyo7m4977ZGdRQuYL0nH"],
+    desc: "Arbusto perennifolio de hoja pequeña y brillante, uno de los más usados en jardinería formal. Admite cualquier forma con la poda y es el clásico de los jardines geométricos, setos bajos y topiaria.",
+    care: "Semisombra o sol suave. Suelos bien drenados. Riego moderado. Vigilar la polilla del boj (Cydalima perspectalis), plaga invasora que puede devastarlo. Poda 1-2 veces al año."
+  },
+  {
+    name: "Yuca gigantea / Yuca pie de elefante",
+    scientific: "Yucca elephantipes",
+    photos: ["1fPwle1aqjXAea9OkwB2XE4As6_7sp-IN","1kJbZemUJqfqCSdavFlZDL7386F-DcRGr","1tdVpgH4rHCX_cm4da6XwqBUup_s220mH"],
+    desc: "Planta suculenta de aspecto tropical con largas hojas en roseta sobre un grueso tronco. Puede alcanzar varios metros de altura. Produce vistosas espigas de flores blancas en verano.",
+    care: "Pleno sol. Muy resistente a la sequía. Suelos bien drenados. Riego escaso —el exceso de agua es su mayor enemigo. Tolera el calor extremo. No es resistente a heladas severas."
+  },
+  {
+    name: "Vid / Parra",
+    scientific: "Vitis vinifera",
+    photos: ["1RZuSHkQU1kHe--RzTePrKsFn0Hi5ydmW","1mhUGwI-hrd5YiPwW6xergfWYHyzxbhFL","176g41My6zGWhDO-8txG0ZIE7Gk1Se9KxS"],
+    desc: "Planta trepadora caducifolia que produce uvas. Cultivada desde hace milenios, combina valor frutal con ornamental: en verano da sombra con su denso follaje y en otoño los colores son espectaculares.",
+    care: "Pleno sol. Suelos bien drenados, preferiblemente sueltos. Poda severa en invierno, fundamental para la producción. Tratamientos preventivos contra mildiu y oídio en primavera."
+  },
+  {
+    name: "Laurel cerezo",
+    scientific: "Prunus laurocerasus",
+    photos: ["1lcG4fS6zKeLGHs7PdnAHff2lpoy9KFds","11zPrO0EGWr7M84IUs-Hw7frjRmjL0MAO","1y1kQkCliEJ66a1ILi640bCJNFEzWKKcs"],
+    desc: "Arbusto o árbol pequeño perennifolio con hojas grandes, brillantes y de color verde oscuro. Muy usado en setos densos y pantallas. Produce flores blancas en espigas y pequeños frutos negros.",
+    care: "Se adapta a pleno sol y sombra profunda. Suelos variados. Riego moderado. Admite podas severas para mantener la forma. Muy robusto y de rápido crecimiento."
+  },
+  {
+    name: "Nogal común",
+    scientific: "Juglans regia",
+    photos: ["1vmQVyUShArfAj1Z6sRJBfaNWQQsMiucA","1gF5wLhrow9pdlRDmvKh0F1pASBel5ARO","1HxoQuj0WHdTPHobwpF6pt_DsN8wxvlSw"],
+    desc: "Árbol caducifolio de gran porte con copa amplia y follaje aromático. Produce las nueces, frutos de gran valor nutritivo. Es de crecimiento relativamente lento pero muy longevo. La madera es muy apreciada.",
+    care: "Pleno sol. Suelos profundos y frescos. Riego en verano si no llueve. Necesita espacio por su gran desarrollo. Segregue juglona, sustancia que inhibe el crecimiento de otras plantas cercanas."
+  },
+  {
+    name: "Aligustre arbóreo",
+    scientific: "Ligustrum lucidum",
+    photos: ["1g1B7LZB7HE_Ri22rxaEGr0GaJIIaojPY","1y2ww-uY0meTBg5FM8qnveZQE4zGuQOx-","1IMt5ThW6Be_sA4bfkAZuByDoTWf_gIS8"],
+    desc: "Árbol o arbusto perennifolio con hojas brillantes y grandes panículas de flores blancas perfumadas en verano. Muy usado como árbol de alineación y en jardines por su resistencia y rápido crecimiento.",
+    care: "Adaptable a sol y semisombra. Tolerante a sequía, contaminación y suelos variados. Riego moderado. Poda de formación según uso (árbol o arbusto). Puede volverse invasor en algunas zonas."
+  },
+  {
+    name: "Hierba de las pampas",
+    scientific: "Cortaderia selloana",
+    photos: ["1cEeOzdVLtCHBhGV4O8q9IxbWh0hm76TL","1h4pT-tv2vbeD8ORxW208nBb6CCmX7hwM","1Xt84p4TWFoC6vOX0bPD88_IcxcOsGva8"],
+    desc: "Gramínea de gran porte con largas hojas en arco y vistosas plumas blancas o rosadas en otoño que pueden superar los 3 m de altura. Muy ornamental. Precaución: considerada invasora en algunas comunidades.",
+    care: "Pleno sol. Muy resistente a la sequía. Poda severa a ras del suelo a finales de invierno, usando guantes (las hojas cortan). Suelos bien drenados. Evitar plantar cerca de zonas naturales."
+  },
+  {
+    name: "Aligustre matizado",
+    scientific: "Ligustrum ovalifolium 'Variegatum'",
+    photos: ["1l1CyrnPkW6jTz6k8RJCA4pxN5-Nz2uYE","1al3EzDB6JqQH91aU4OmtuorcvFku1geY","1OCp5saD6pQdGkD8ouuFiaNZ_oZngC2DW"],
+    desc: "Variedad de aligustre con hojas bordeadas en crema o blanco, muy decorativa. Semipérennifolio. Muy usado en setos ornamentales y como arbusto de contraste en composiciones de jardín.",
+    care: "Sol o semisombra (el sol mantiene mejor el variegado). Suelos moderadamente húmedos y bien drenados. Poda en primavera y verano. Resistente y de fácil cultivo."
+  },
+  {
+    name: "Cotoneaster lechoso",
+    scientific: "Cotoneaster lacteus",
+    photos: ["1jnBIg6kwQu-4P1BCMQIZ2AxO5sFLUmeg","1JMSR0RrAV-jlwGHL7SZsIKMrKvDu4w32","1NCRcqRvXQcUDZqYt6JFSr1qrXG5bRidc"],
+    desc: "Arbusto perennifolio de porte arqueado con hojas de envés blanquecino (de ahí 'lácteo'). Flores blancas en verano y abundantes bayas rojas en otoño-invierno muy ornamentales y apreciadas por los pájaros.",
+    care: "Sol o semisombra. Muy resistente a la sequía una vez establecido. Suelos variados y bien drenados. Poca poda, sólo para mantener forma. Robusto y de bajo mantenimiento."
+  },
+  {
+    name: "Tamariz",
+    scientific: "Tamarix gallica / T. ramosissima",
+    photos: ["1GPwm848Q2J3iEtaulD5gDW7HMFICvG6G","1UH5nrmUwCYNKZqsqK-6oSzIs4zKF9PEm","1UhTXRQuAk5d0zULjmnECYi7yD0fX14Og"],
+    desc: "Arbusto o árbol pequeño de aspecto plumoso con diminutas hojas escamosas y flores rosadas en espigas muy vistosas en primavera y verano. Muy resistente a condiciones difíciles. Tolera la salinidad.",
+    care: "Pleno sol. Extraordinariamente resistente a sequía, viento y suelos salinos o pobres. Poda tras la floración para rejuvenecer. Riego mínimo una vez establecido."
+  },
+  {
+    name: "Viburno lúcido",
+    scientific: "Viburnum lucidum",
+    photos: ["191RhnEr6d4qfBuvTJC-SRY5DXTLdP9hb","1OT0yyDrtlil0QNyEnKVCtxlZaD49Zcye","1BmQtQLnXgzEZ1CKBLURzVGTrQERR_-UX"],
+    desc: "Arbusto perennifolio con hojas grandes, brillantes y de un verde intenso. Produce grandes umbelas de flores blancas muy perfumadas en invierno-primavera temprana, cuando pocos arbustos florecen. Bayas negro-azuladas.",
+    care: "Tolera bien la sombra y semisombra. Suelos húmedos y fértiles. Riego regular. Poda ligera tras la floración. Muy ornamental en todas las estaciones."
+  },
+  {
+    name: "Lilo",
+    scientific: "Syringa vulgaris",
+    photos: ["1OlEMYD4edToUNcqviI0L3dNw8z4YXBpB","1fSRrbRqyfytBLkP38sRWowpFiiI89RRF"],
+    desc: "Arbusto caducifolio famoso por sus racimos de flores (blancas, malvas o púrpuras según variedad) de perfume intenso y característico en primavera. Muy apreciado en jardinería y floricultura.",
+    care: "Pleno sol, suelos bien drenados, preferiblemente ligeramente alcalinos. Poda tras la floración eliminando los racimos marchitos. Necesita cierta acumulación de frío invernal para florecer bien."
+  },
+  {
+    name: "Higuera",
+    scientific: "Ficus carica",
+    photos: [],
+    desc: "Árbol o arbusto caducifolio de hojas grandes y lobuladas muy ornamentales. Produce los higos, frutos dulces y apreciados. Muy longevo, con tronco retorcido y copa amplia. Símbolo mediterráneo por excelencia.",
+    care: "Pleno sol. Muy resistente a la sequía una vez establecido. Suelos bien drenados. Poda en invierno para controlar el tamaño. Puede producir dos cosechas al año (brevas en junio, higos en agosto-septiembre)."
+  },
+  {
+    name: "Pitosporo",
+    scientific: "Pittosporum tobira",
+    photos: [],
+    desc: "Arbusto perennifolio muy usado en jardinería mediterránea. Hojas coriáceas, brillantes, de color verde oscuro. Flores blancas con aroma a naranja en primavera. Resistente al viento y la salinidad costera.",
+    care: "Sol o semisombra. Muy tolerante a la sequía y suelos pobres. Poda en primavera para mantener forma. Excelente para setos o arbustos aislados. Tolera la salinidad ambiental."
+  },
+  {
+    name: "Rosa de Siria / Hibiscus",
+    scientific: "Hibiscus syriacus",
+    photos: [],
+    desc: "Arbusto caducifolio de floración muy llamativa con grandes flores en tonos blancos, rosas, malvas o bicolores, con estambres prominentes. Florece en verano-otoño cuando pocos arbustos están en flor.",
+    care: "Pleno sol. Suelos bien drenados y moderadamente húmedos. Poda en primavera antes del inicio del crecimiento. Tolera la sequía una vez establecido. Muy resistente."
+  },
+  {
+    name: "Ciprés",
+    scientific: "Cupressus sempervirens",
+    photos: [],
+    desc: "Conífera perennifolia de porte columnar estricto, símbolo del paisaje mediterráneo. Sus esbeltas siluetas oscuras son inconfundibles. Muy longevo: puede vivir siglos. Madera muy aromática y resistente.",
+    care: "Pleno sol. Muy resistente a la sequía, calor y suelos pobres o calcáreos. Casi sin mantenimiento una vez establecido. Poda mínima. No tolera suelos encharcados."
+  },
+  {
+    name: "Níspero japonés",
+    scientific: "Eriobotrya japonica",
+    photos: [],
+    desc: "Árbol perennifolio de hojas grandes y nervadas. Florece en otoño-invierno con flores blancas perfumadas y produce frutos amarillos y jugosos (nísperos) en primavera, de los primeros del año.",
+    care: "Pleno sol o semisombra. Suelos bien drenados. Tolera la sequía moderada. Proteger la floración de heladas tardías. Poda tras la cosecha para airear la copa."
+  },
+  {
+    name: "Parra virgen",
+    scientific: "Parthenocissus quinquefolia / P. tricuspidata",
+    photos: [],
+    desc: "Trepadora caducifolia que se adhiere a muros mediante ventosas. En otoño el follaje se transforma en un espectáculo de rojos y naranjas intensos. Muy usada para cubrir fachadas, vallas y pérgolas.",
+    care: "Sol o sombra. Se adapta a casi cualquier suelo. Riego moderado. Crece rápidamente y puede necesitar podas periódicas para controlarla. Sin apenas plagas ni enfermedades."
+  },
+  {
+    name: "Cotoneaster de espiga",
+    scientific: "Cotoneaster spicatus / C. horizontalis",
+    photos: [],
+    desc: "Arbusto de porte rastrero o en espiga con ramificación característica en espina de pez. Flores pequeñas blancas o rosadas y abundantes bayas rojas muy persistentes y ornamentales en otoño-invierno.",
+    care: "Sol o semisombra. Muy resistente a la sequía y suelos pobres. Prácticamente sin mantenimiento. Excelente para taludes, suelos o como contraste con muros. Muy apreciado por la fauna."
+  },
+  {
+    name: "Ciprés de Leyland",
+    scientific: "× Cuprocyparis leylandii",
+    photos: [],
+    desc: "Híbrido de crecimiento extraordinariamente rápido (hasta 1 m/año), muy usado para setos de privacidad. Follaje denso de color verde grisáceo. No produce semillas fértiles al ser híbrido.",
+    care: "Pleno sol. Suelos bien drenados. Riego moderado. Requiere podas periódicas para controlar su crecimiento y mantener la forma del seto. Muy resistente y adaptable."
+  },
+  {
+    name: "Salvia roja",
+    scientific: "Salvia splendens",
+    photos: [],
+    desc: "Planta anual o perenne en climas suaves, con flores tubulares de un rojo intenso y brillante muy llamativas. Muy usada en jardinería para crear manchas de color en parterres y borduras.",
+    care: "Pleno sol. Suelos fértiles y bien drenados. Riego regular pero sin encharcar. Eliminar flores marchitas para prolongar la floración. En climas fríos, tratar como anual."
+  },
+  {
+    name: "Lavanda",
+    scientific: "Lavandula angustifolia",
+    photos: [],
+    desc: "Mata aromática mediterránea con espigas de flores azul-violáceas muy perfumadas. Su aroma es inconfundible. Además de ornamental, tiene múltiples usos: perfumería, cosmética, gastronomía y medicina tradicional.",
+    care: "Pleno sol. Suelos secos, bien drenados, preferiblemente calcáreos. Muy resistente a la sequía. Poda tras la floración para mantener la forma compacta. No tolera suelos húmedos."
+  },
+  {
+    name: "Acebo",
+    scientific: "Ilex aquifolium",
+    photos: [],
+    desc: "Arbusto o árbol pequeño perennifolio con hojas brillantes de bordes espinosos y llamativas bayas rojas en invierno. Símbolo de la Navidad. Muy ornamental todo el año, especialmente en invierno.",
+    care: "Semisombra o sol. Suelos ácidos, fértiles y bien drenados. Riego regular. Las bayas rojas aparecen sólo en plantas femeninas; para garantizar la fructificación conviene tener ejemplares de ambos sexos."
+  },
+  {
+    name: "Arce japonés",
+    scientific: "Acer palmatum",
+    photos: [],
+    desc: "Árbol o arbusto pequeño caducifolio con hojas palmeadas de gran finura y colores espectaculares: verde, rojo o púrpura en verano; escarlata y dorado en otoño. Joya de los jardines de estilo japonés.",
+    care: "Semisombra o sol suave. Proteger del sol intenso y el viento en zonas cálidas. Suelos ácidos, fértiles y bien drenados. Riego regular en verano. Poda mínima."
+  },
+  {
+    name: "Aliso de mar",
+    scientific: "Tamarix / Hippophae / Phillyrea angustifolia",
+    photos: [],
+    desc: "Arbusto costero resistente al viento y la salinidad, con hojas estrechas de tonos grises o plateados. Muy usado en jardines litorales y como cortavientos natural.",
+    care: "Pleno sol. Extraordinariamente resistente a condiciones adversas: sequía, viento, salinidad, suelos pobres. Poca poda. Excelente para zonas difíciles o expuestas."
+  },
+  {
+    name: "Hiedra común",
+    scientific: "Hedera helix",
+    photos: [],
+    desc: "Trepadora o tapizante perennifolia que se adhiere a cualquier superficie. Hojas lobuladas verde oscuro, brillantes. Muy versátil: cubre muros, tapiza suelos en sombra o crece como arbusto libre.",
+    care: "Sombra o semisombra (tolera también el sol). Prácticamente cualquier suelo. Riego escaso una vez establecida. Poda para controlar el crecimiento. Muy resistente."
+  },
+  {
+    name: "Hiedra variegada",
+    scientific: "Hedera helix 'Variegata'",
+    photos: [],
+    desc: "Variedad de hiedra con hojas bordeadas o jaspeadas en blanco o crema, muy decorativas. Ilumina rincones sombríos con su follaje bicolor. Usos y características similares a la hiedra común.",
+    care: "Semisombra o sombra (evitar sol directo intenso que puede quemar las zonas claras). Riego moderado. Poda para controlar extensión. Mismos cuidados que la hiedra común."
+  },
+  {
+    name: "Siempreviva de los tejados",
+    scientific: "Sempervivum tectorum",
+    photos: [],
+    desc: "Suculenta rastrera que forma rosetas compactas de hojas carnosas de color verde con punta rojiza. Extremadamente resistente. Su nombre viene de que antiguamente se plantaba en tejados para protegerlos del rayo.",
+    care: "Pleno sol. Suelos muy pobres, secos y bien drenados. Riego escasísimo. Resiste heladas, calor extremo y sequía. Una de las plantas más fáciles de cultivar. Se multiplica por hijuelos."
+  },
+  {
+    name: "Hierba de San Juan / Hipérico",
+    scientific: "Hypericum calycinum / H. perforatum",
+    photos: [],
+    desc: "Planta perenne de flores amarillas con abundantes estambres dorados muy vistosas en verano. Muy usada como tapizante bajo árboles y en taludes. Tiene propiedades medicinales conocidas desde antiguo.",
+    care: "Sol o semisombra. Suelos variados y bien drenados. Bastante resistente a la sequía. Poda tras la floración o a finales de invierno para rejuvenecer. Se extiende bien como tapizante."
+  },
+  {
+    name: "Alstroemerias",
+    scientific: "Alstroemeria spp.",
+    photos: [],
+    desc: "Planta herbácea perenne con flores de gran colorido en tonos rosados, amarillos, naranjas y rojos, frecuentemente bicolores y moteadas. Muy apreciada en floricultura por su larga duración como flor cortada.",
+    care: "Sol o semisombra. Suelos bien drenados y fértiles. Riego regular pero sin encharcamiento. En climas fríos proteger los rizomas en invierno. Se multiplica por división en otoño."
+  },
+  {
+    name: "Calas amarillas",
+    scientific: "Zantedeschia elliottiana",
+    photos: [],
+    desc: "Planta bulbosa con grandes flores en espata amarillo intenso y brillante, muy elegantes. Las hojas, a menudo moteadas de blanco, son también ornamentales. Ideal para zonas húmedas y bordes de estanques.",
+    care: "Sol o semisombra. Suelos húmedos o incluso encharcados. Riego abundante en temporada de crecimiento. En climas fríos, desenterrar los bulbos en otoño y guardarlos en lugar fresco y seco."
+  }
+];
+
+// Build nav
+const nav = document.getElementById('nav-links');
+plants.forEach((p, i) => {
+  const a = document.createElement('a');
+  a.href = `#plant-${i}`;
+  a.textContent = p.name.split('/')[0].trim();
+  nav.appendChild(a);
+});
+
+// Build grid
+const grid = document.getElementById('grid');
+plants.forEach((p, i) => {
+  const card = document.createElement('div');
+  card.className = 'card';
+  card.id = `plant-${i}`;
+  card.dataset.name = p.name.toLowerCase();
+
+  const photoLabels = ['Vista general', 'Hojas', 'Tronco'];
+  let photosHtml = '';
+  if (p.photos.length > 0) {
+    p.photos.forEach((id, pi) => {
+      photosHtml += `<img src="${DRIVE(id)}" alt="${photoLabels[pi] || 'Detalle'}" title="${photoLabels[pi] || 'Detalle'}" onclick="openLightbox('${DRIVE(id)}')">`;
+    });
+  } else {
+    photosHtml = '<div class="no-photo">Fotos próximamente</div>';
+  }
+
+  card.innerHTML = `
+    <div class="photos">${photosHtml}</div>
+    <div class="card-body">
+      <h2>${p.name}</h2>
+      <div class="scientific">${p.scientific}</div>
+      <p class="description">${p.desc}</p>
+      <div class="care">
+        <div class="care-title">Cuidados</div>
+        <p>${p.care}</p>
+      </div>
+    </div>
+  `;
+  grid.appendChild(card);
+});
+
+updateStats();
+
+function filterCards() {
+  const q = document.getElementById('search').value.toLowerCase();
+  document.querySelectorAll('.card').forEach(c => {
+    c.classList.toggle('hidden', !c.dataset.name.includes(q));
+  });
+  updateStats();
+}
+
+function updateStats() {
+  const total = plants.length;
+  const visible = document.querySelectorAll('.card:not(.hidden)').length;
+  const withPhotos = plants.filter(p => p.photos.length > 0).length;
+  document.getElementById('stats').textContent =
+    visible === total
+      ? `${total} especies · ${withPhotos} con fotografías`
+      : `${visible} de ${total} especies`;
+}
+
+function openLightbox(src) {
+  document.getElementById('lightbox-img').src = src;
+  document.getElementById('lightbox').classList.add('open');
+}
+function closeLightbox() {
+  document.getElementById('lightbox').classList.remove('open');
+  document.getElementById('lightbox-img').src = '';
+}
+document.getElementById('lightbox').addEventListener('click', e => {
+  if (e.target === e.currentTarget) closeLightbox();
+});
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeLightbox(); });
+</script>
+</body>
+</html>
