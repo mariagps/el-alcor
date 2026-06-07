@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Editor de mapa — El Alcor</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: Georgia, serif; background: #f5f0e8; color: #2c2c2c; }
+
+    header {
+      background: #2d5016; color: #f5f0e8;
+      padding: 1rem 1.5rem;
+    }
+    header h1 { font-size: 1.3rem; font-weight: normal; }
+    header p { font-size: .82rem; color: #b8d4a0; margin-top: .3rem; }
+
+    .toolbar {
+      background: #3d6b1f; padding: .6rem 1rem;
+      display: flex; gap: .8rem; align-items: center; flex-wrap: wrap;
+    }
+    .toolbar button {
+      padding: .4rem .9rem; border: none; border-radius: 4px;
+      cursor: pointer; font-size: .85rem; font-family: inherit;
+    }
+    .btn-deshacer { background: #fff3; color: #fff; }
+    .btn-deshacer:hover { background: #fff5; }
+    .btn-exportar { background: #f5c842; color: #2c2c2c; font-weight: bold; }
+    .btn-exportar:hover { background: #f0b800; }
+    .btn-limpiar { background: #e05555; color: #fff; }
+    .btn-limpiar:hover { background: #c03333; }
+    .toolbar span { color: #d4ebb8; font-size: .82rem; }
+
+    .map-wrap {
+      position: relative;
+      max-width: 860px;
+      margin: 1rem auto;
+      padding: 0 1rem;
+      cursor: crosshair;
+    }
+    .map-wrap img { width: 100%; display: block; border-radius: 8px; box-shadow: 0 3px 12px rgba(0,0,0,.2); user-select: none; }
+
+    .marker {
+      position: absolute;
+      width: 26px; height: 26px;
+      border-radius: 50%;
+      background: #2d5016;
+      border: 2.5px solid #fff;
+      color: #fff;
+      font-size: .65rem;
+      font-weight: bold;
+      font-family: monospace;
+      display: flex; align-items: center; justify-content: center;
+      transform: translate(-50%, -50%);
+      box-shadow: 0 2px 6px rgba(0,0,0,.4);
+      cursor: pointer;
+      z-index: 10;
+      white-space: nowrap;
+    }
+    .marker:hover { background: #c03333; }
+    .marker .label {
+      position: absolute;
+      bottom: 28px; left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0,0,0,.75);
+      color: #fff;
+      padding: 2px 6px;
+      border-radius: 3px;
+      font-size: .7rem;
+      white-space: nowrap;
+      pointer-events: none;
+      display: none;
+    }
+    .marker:hover .label { display: block; }
+
+    /* Popup selector */
+    #popup {
+      display: none;
+      position: fixed;
+      background: #fff;
+      border: 2px solid #3d6b1f;
+      border-radius: 8px;
+      padding: 1rem;
+      min-width: 240px;
+      box-shadow: 0 6px 20px rgba(0,0,0,.2);
+      z-index: 100;
+    }
+    #popup h3 { font-size: .9rem; color: #2d5016; margin-bottom: .6rem; }
+    #popup select {
+      width: 100%; padding: .4rem; font-size: .9rem;
+      border: 1.5px solid #b0c8a0; border-radius: 4px;
+      margin-bottom: .7rem; font-family: inherit;
+    }
+    #popup .popup-btns { display: flex; gap: .5rem; }
+    #popup .popup-btns button {
+      flex: 1; padding: .4rem; border: none; border-radius: 4px;
+      cursor: pointer; font-size: .85rem; font-family: inherit;
+    }
+    .btn-ok { background: #3d6b1f; color: #fff; }
+    .btn-ok:hover { background: #2d5016; }
+    .btn-cancel { background: #ddd; color: #444; }
+    .btn-cancel:hover { background: #ccc; }
+
+    .lista {
+      max-width: 860px; margin: 0 auto 3rem; padding: 0 1rem;
+    }
+    .lista h2 { font-size: .95rem; color: #2d5016; margin: 1rem 0 .5rem; text-transform: uppercase; letter-spacing: .04em; }
+    .lista-items { display: flex; flex-wrap: wrap; gap: .4rem; }
+    .lista-items span {
+      background: #e8f0dc; padding: .25rem .6rem;
+      border-radius: 12px; font-size: .8rem;
+    }
+    .lista-items span.pendiente { background: #f0e8e8; color: #888; }
+
+    #output-area {
+      display: none;
+      max-width: 860px; margin: 0 auto 2rem; padding: 0 1rem;
+    }
+    #output-area h2 { font-size: .95rem; color: #2d5016; margin-bottom: .5rem; }
+    #output-area textarea {
+      width: 100%; height: 180px; font-family: monospace; font-size: .8rem;
+      padding: .6rem; border: 1.5px solid #b0c8a0; border-radius: 4px;
+    }
+    #output-area p { font-size: .82rem; color: #666; margin-top: .4rem; }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>Editor de mapa — El Alcor</h1>
+  <p>Haz clic en el mapa para colocar una planta. Haz clic en un marcador existente para eliminarlo.</p>
+</header>
+
+<div class="toolbar">
+  <button class="btn-deshacer" onclick="deshacer()">↩ Deshacer</button>
+  <button class="btn-exportar" onclick="exportar()">⬇ Exportar (copiar para Samba)</button>
+  <button class="btn-limpiar" onclick="limpiarTodo()">✕ Limpiar todo</button>
+  <span id="contador">0 plantas colocadas</span>
+</div>
+
+<div class="map-wrap" id="mapwrap">
+  <img src="mapa.png" alt="Mapa" id="mapimg" draggable="false">
+</div>
+
+<div class="lista">
+  <h2>Plantas colocadas</h2>
+  <div class="lista-items" id="lista-items"><span class="pendiente">Ninguna todavía</span></div>
+</div>
+
+<div id="output-area">
+  <h2>Resultado — copia y pégalo en el chat con Samba</h2>
+  <textarea id="output-text" readonly></textarea>
+  <p>Selecciona todo el texto (Cmd+A dentro del recuadro) y cópialo.</p>
+</div>
+
+<div id="popup">
+  <h3>¿Qué planta hay aquí?</h3>
+  <select id="plant-select"></select>
+  <div class="popup-btns">
+    <button class="btn-ok" onclick="confirmarMarcador()">Añadir</button>
+    <button class="btn-cancel" onclick="cancelarMarcador()">Cancelar</button>
+  </div>
+</div>
+
+<script>
+const plants = [
+  {slug:"01-cedro-incienso", name:"Cedro del incienso"},
+  {slug:"02-arbol-del-amor", name:"Árbol del amor / Árbol de Judas"},
+  {slug:"03-pino-pionero", name:"Pino piñonero"},
+  {slug:"04-tejo", name:"Tejo"},
+  {slug:"05-abeto-rojo", name:"Abeto rojo"},
+  {slug:"06-cedro-atlas", name:"Cedro del Atlas / Cedro azul"},
+  {slug:"07-cerezo", name:"Cerezo"},
+  {slug:"08-granado", name:"Granado"},
+  {slug:"09-acanto", name:"Acanto"},
+  {slug:"10-santolina", name:"Santolina"},
+  {slug:"11-rayito-de-sol", name:"Rayito de sol"},
+  {slug:"12-manzano", name:"Manzano"},
+  {slug:"13-tejo-columnar", name:"Tejo común columnar / Tejo irlandés"},
+  {slug:"14-boj", name:"Boj común"},
+  {slug:"15-yuca", name:"Yuca gigantea"},
+  {slug:"16-vid", name:"Vid / Parra"},
+  {slug:"17-laurel-cerezo", name:"Laurel cerezo"},
+  {slug:"18-nogal", name:"Nogal común"},
+  {slug:"19-aligustre-arboreo", name:"Aligustre arbóreo"},
+  {slug:"20-hierba-pampas", name:"Hierba de las pampas"},
+  {slug:"21-aligustre-matizado", name:"Aligustre matizado"},
+  {slug:"22-cotoneaster-lechoso", name:"Cotoneaster lechoso"},
+  {slug:"23-tamariz", name:"Tamariz"},
+  {slug:"24-viburno", name:"Viburno lúcido"},
+  {slug:"25-lilo", name:"Lilo"},
+  {slug:"26-higuera", name:"Higuera"},
+  {slug:"27-pitosporo", name:"Pitosporo"},
+  {slug:"28-hibiscus", name:"Rosa de Siria / Hibiscus"},
+  {slug:"29-cipres", name:"Ciprés"},
+  {slug:"30-nispero", name:"Níspero japonés"},
+  {slug:"31-parra-virgen", name:"Parra virgen"},
+  {slug:"32-cotoneaster-espiga", name:"Cotoneaster de espiga"},
+  {slug:"33-cipres-leyland", name:"Ciprés de Leyland"},
+  {slug:"34-salvia-roja", name:"Salvia roja"},
+  {slug:"35-lavanda", name:"Lavanda"},
+  {slug:"36-acebo", name:"Acebo"},
+  {slug:"37-arce-japones", name:"Arce japonés"},
+  {slug:"38-aliso-mar", name:"Aliso de mar"},
+  {slug:"39-hiedra-comun", name:"Hiedra común"},
+  {slug:"40-hiedra-variegada", name:"Hiedra variegada"},
+  {slug:"41-siempreviva", name:"Siempreviva de los tejados"},
+  {slug:"42-hiperico", name:"Hierba de San Juan / Hipérico"},
+  {slug:"43-alstroemerias", name:"Alstroemerias"},
+  {slug:"44-calas-amarillas", name:"Calas amarillas"},
+];
+
+// Fill select
+const sel = document.getElementById('plant-select');
+plants.forEach(p => {
+  const opt = document.createElement('option');
+  opt.value = p.slug;
+  opt.textContent = p.name;
+  sel.appendChild(opt);
+});
+
+let marcadores = [];
+let pendingPos = null;
+
+// Click on map
+document.getElementById('mapwrap').addEventListener('click', e => {
+  if (e.target.closest('.marker')) return;
+  const wrap = document.getElementById('mapwrap');
+  const img = document.getElementById('mapimg');
+  const rect = img.getBoundingClientRect();
+  const x = ((e.clientX - rect.left) / rect.width * 100).toFixed(2);
+  const y = ((e.clientY - rect.top) / rect.height * 100).toFixed(2);
+  pendingPos = {x, y};
+  mostrarPopup(e.clientX, e.clientY);
+});
+
+function mostrarPopup(cx, cy) {
+  const popup = document.getElementById('popup');
+  popup.style.display = 'block';
+  const pw = popup.offsetWidth, ph = popup.offsetHeight;
+  let left = cx + 12, top = cy - 20;
+  if (left + pw > window.innerWidth - 10) left = cx - pw - 12;
+  if (top + ph > window.innerHeight - 10) top = window.innerHeight - ph - 10;
+  popup.style.left = left + 'px';
+  popup.style.top = top + 'px';
+}
+
+function confirmarMarcador() {
+  const slug = document.getElementById('plant-select').value;
+  const plant = plants.find(p => p.slug === slug);
+  if (!plant || !pendingPos) return;
+  agregarMarcador(pendingPos.x, pendingPos.y, plant);
+  document.getElementById('popup').style.display = 'none';
+  pendingPos = null;
+}
+
+function cancelarMarcador() {
+  document.getElementById('popup').style.display = 'none';
+  pendingPos = null;
+}
+
+function agregarMarcador(x, y, plant) {
+  const wrap = document.getElementById('mapwrap');
+  const div = document.createElement('div');
+  div.className = 'marker';
+  div.style.left = x + '%';
+  div.style.top = y + '%';
+
+  // Short label (number from slug)
+  const num = plant.slug.split('-')[0].replace(/^0/, '');
+  div.innerHTML = `${num}<div class="label">${plant.name}</div>`;
+  div.title = plant.name;
+  div.addEventListener('click', e => {
+    e.stopPropagation();
+    if (confirm(`¿Eliminar "${plant.name}"?`)) {
+      div.remove();
+      marcadores = marcadores.filter(m => m.el !== div);
+      actualizarLista();
+    }
+  });
+
+  wrap.appendChild(div);
+  marcadores.push({x, y, slug: plant.slug, name: plant.name, el: div});
+  actualizarLista();
+}
+
+function deshacer() {
+  if (!marcadores.length) return;
+  const last = marcadores.pop();
+  last.el.remove();
+  actualizarLista();
+}
+
+function limpiarTodo() {
+  if (!marcadores.length) return;
+  if (!confirm('¿Eliminar todos los marcadores?')) return;
+  marcadores.forEach(m => m.el.remove());
+  marcadores = [];
+  actualizarLista();
+}
+
+function actualizarLista() {
+  const cont = document.getElementById('lista-items');
+  document.getElementById('contador').textContent = `${marcadores.length} plantas colocadas`;
+  if (!marcadores.length) {
+    cont.innerHTML = '<span class="pendiente">Ninguna todavía</span>';
+    return;
+  }
+  cont.innerHTML = marcadores.map(m =>
+    `<span>${m.name}</span>`
+  ).join('');
+}
+
+function exportar() {
+  const data = marcadores.map(m => ({x: m.x, y: m.y, slug: m.slug, name: m.name}));
+  const text = JSON.stringify(data, null, 2);
+  const area = document.getElementById('output-area');
+  area.style.display = 'block';
+  document.getElementById('output-text').value = text;
+  area.scrollIntoView({behavior: 'smooth'});
+}
+
+// Close popup clicking outside
+document.addEventListener('click', e => {
+  const popup = document.getElementById('popup');
+  if (!popup.contains(e.target) && !e.target.closest('#mapwrap')) {
+    popup.style.display = 'none';
+    pendingPos = null;
+  }
+});
+</script>
+</body>
+</html>
