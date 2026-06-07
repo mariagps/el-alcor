@@ -88,13 +88,32 @@
       height: 200px;
       background: #e8e8e8;
     }
-    .photos img {
+
+    .photo-wrap {
+      position: relative;
       flex: 1;
-      object-fit: cover;
-      cursor: pointer;
+      overflow: hidden;
       transition: flex .25s;
     }
-    .photos img:hover { flex: 2.5; }
+    .photo-wrap:hover { flex: 2.5; }
+    .photo-wrap img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      cursor: pointer;
+      display: block;
+    }
+    .photo-num {
+      position: absolute;
+      top: 4px; left: 4px;
+      background: rgba(0,0,0,.55);
+      color: #fff;
+      font-size: .7rem;
+      padding: 1px 5px;
+      border-radius: 3px;
+      pointer-events: none;
+      font-family: monospace;
+    }
     .photos .no-photo {
       flex: 1;
       display: flex;
@@ -512,6 +531,7 @@ plants.forEach((p, i) => {
 });
 
 // Build grid
+let photoCounter = 1;
 const grid = document.getElementById('grid');
 plants.forEach((p, i) => {
   const card = document.createElement('div');
@@ -523,7 +543,8 @@ plants.forEach((p, i) => {
   let photosHtml = '';
   if (p.photos.length > 0) {
     p.photos.forEach((id, pi) => {
-      photosHtml += `<img src="${id}" alt="${photoLabels[pi] || 'Detalle'}" title="${photoLabels[pi] || 'Detalle'}" onclick="openLightbox('${id}')">`;
+      const num = String(photoCounter++).padStart(3, '0');
+      photosHtml += `<div class="photo-wrap"><span class="photo-num">${num}</span><img src="${id}" alt="${photoLabels[pi] || 'Detalle'}" title="${photoLabels[pi] || 'Detalle'}" onclick="openLightbox('${id}')"></div>`;
     });
   } else {
     photosHtml = '<div class="no-photo">Fotos próximamente</div>';
